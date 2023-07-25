@@ -14,7 +14,7 @@ const chatId = process.env.DISCORD_CHAT_ID;
 // Gerekli Gateway Intentleri burada belirtiliyor
 const botIntents = new Intents([
     Intents.FLAGS.GUILDS, // Sunucular ve kanallarla ilgili bilgiler burada tutuluyor
-    Intents.FLAGS.GUILD_MESSAGES, // Mesajlar ve mesaj etkinlikleri
+    Intents.FLAGS.GUILD_MESSAGES, // Mesajlar ve mesaj etkinlikleri için
   ]);
   
 const client = new Client({ intents: botIntents });

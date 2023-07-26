@@ -1,4 +1,3 @@
-const { Client, Intents } = require('discord.js');
 
 const { Client, Intents } = require('discord.js');
 
@@ -23,7 +22,7 @@ const client = new Client({ intents: botIntents });
 const octokit = new Octokit();
 
 client.once('ready', () => {
-  console.log('Bot hazır!');
+  
 });
 
 client.login(botToken);
@@ -53,7 +52,7 @@ async function checkForUpdates() {
       }
     }
   } catch (error) {
-    console.error('GitHub API hatası:', error.message);
+    
   }
 }
 

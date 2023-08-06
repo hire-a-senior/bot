@@ -1,62 +1,78 @@
+const fs = require("node:fs");
+const path = require("node:path");
+const {
+  Client,
+  Collection,
+  Events,
+  GatewayIntentBits,
+  Partials,
+} = require("discord.js");
+const config = require("./config.js");
 
-const { Client, Intents } = require('discord.js');
-
-const { Octokit } = require('octokit');
-
-
-const organization = "sosyal-app";
-
-
-const botToken = process.env.DISCORD_KEY;
-const chatId = process.env.DISCORD_CHAT_ID;
-
-// Gerekli Gateway Intentleri burada belirtiliyor
-const botIntents = new Intents([
-    Intents.FLAGS.GUILDS, // Sunucular ve kanallarla ilgili bilgiler burada tutuluyor
-    Intents.FLAGS.GUILD_MESSAGES, // Mesajlar ve mesaj etkinlikleri için
-  ]);
-  
-const client = new Client({ intents: botIntents });
-
-
-const octokit = new Octokit();
-
-client.once('ready', () => {
-  
+const client = new Client({
+  intents: [
+    GatewayIntentBits.Guilds,
+    GatewayIntentBits.DirectMessages,
+    GatewayIntentBits.GuildMessages,
+  ],
+  partials: [Partials.Channel],
 });
 
-client.login(botToken);
+// Introducing the commands
+client.commands = new Collection();
+const foldersPath = path.join(__dirname, "commands");
+const commandFolders = fs.readdirSync(foldersPath);
 
-async function checkForUpdates() {
-  try {
-   
-    const { data: repos } = await octokit.repos.listForOrg({
-      org: organization,
-      per_page: 100, 
-    });
-
-    
-    for (const repo of repos) {
-      const { data } = await octokit.repos.listCommits({
-        owner: organization,
-        repo: repo.name,
-        per_page: 1,
-      });
-
-      if (data.length > 0) {
-        const latestCommit = data[0];
-        const message = `Yeni bir commit yapıldı!\nRepo: ${repo.name}\nBaşlık: ${latestCommit.commit.message}\nLink: ${latestCommit.html_url}`;
-
-        const channel = client.channels.cache.get(process.env.DISCORD_CHAT_ID); 
-        channel.send(message);
-      }
+for (const folder of commandFolders) {
+  const commandsPath = path.join(foldersPath, folder);
+  const commandFiles = fs
+    .readdirSync(commandsPath)
+    .filter((file) => file.endsWith(".js"));
+  for (const file of commandFiles) {
+    const filePath = path.join(commandsPath, file);
+    const command = require(filePath);
+    // Set a new item in the Collection with the key as the command name and the value as the exported module
+    if ("data" in command && "execute" in command) {
+      client.commands.set(command.data.name, command);
+    } else {
+      console.log(
+        `[WARNING] The command at ${filePath} is missing a required "data" or "execute" property.`
+      );
     }
-  } catch (error) {
-    
   }
 }
 
+client.once(Events.ClientReady, (c) => {
+  console.log(`Ready! Logged in as ${c.user.tag}`);
+});
 
-const interval = 60000; 
-setInterval(checkForUpdates, interval);
+// On an interaction (message, command etc, find the correct command to run and execute it)
+client.on(Events.InteractionCreate, async (interaction) => {
+  if (!interaction.isChatInputCommand()) return;
+  const command = interaction.client.commands.get(interaction.commandName);
+  console.log("all commands: ", interaction.client.commands);
 
+  if (!command) {
+    console.error(`No command matching ${interaction.commandName} was found.`);
+    return;
+  }
+
+  try {
+    await command.execute(interaction);
+  } catch (error) {
+    console.error(error);
+    if (interaction.replied || interaction.deferred) {
+      await interaction.followUp({
+        content: "There was an error while executing this command!",
+        ephemeral: true,
+      });
+    } else {
+      await interaction.reply({
+        content: "There was an error while executing this command!",
+        ephemeral: true,
+      });
+    }
+  }
+});
+
+client.login(config.token);
